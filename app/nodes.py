@@ -49,6 +49,7 @@ def logic_generator(state: MainState):
 def handler(state: MainState):
     prefix = "[Node handler]"
     logger.info(f"{prefix} Start")
+
     if state["messages"]:
         logger.info(f"{prefix} Last message: {state['messages'][-1]}")
 

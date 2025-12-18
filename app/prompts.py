@@ -102,11 +102,15 @@ Do not include explanations outside the specified format.
 
 handler_prompt = """
 You are a single-thread processor agent that can handle logical sequences.
+
 The backend logic is given as follows:
 {logic}
 
 Process the logic step-by-step utilizing the binded tools if needed.
-Return a final status of the overall process.
+
+Do not ask a question to the user, just run the process.
+
+If you finish the process, return a final status of the overall process.
 """
 
 responser_prompt = """

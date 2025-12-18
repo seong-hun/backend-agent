@@ -1,48 +1,34 @@
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+import logging
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
+from app.common.databases import db
 from app.common.models import get_model
 from app.common.utils import record, response_to_text
-from app.common.databases import db
-from app.sql_graph import tools, prompts
+from app.sql_graph import prompts, tools
 from app.sql_graph.states import SqlState
-
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 @record
-def list_tables(state: SqlState):
+def get_db_info(state: SqlState):
     prefix = "[Node sql_graph - list_tables]"
     logger.info(f"{prefix} Start")
 
-    tool_call = {
-        "name": "sql_db_list_tables",
-        "args": {},
-        "id": "abc123",
-        "type": "tool_call",
-    }
-    tool_call_message = AIMessage(content="", tool_calls=[tool_call])
-    tool_message = tools.list_tables_tool.invoke(tool_call)
-    response = AIMessage(f"Available tables: {tool_message.content}")
+    tables = tools.list_tables_tool.invoke({})
+    logger.info(f"{prefix} Avaliable tables: {tables}")
+    if not tables:
+        schema = ""
 
-    logger.info(f"{prefix} {response.content}")
-    return {"messages": [tool_call_message, tool_message, response]}
+    schema = tools.get_schema_tool.invoke(tables)
+    logger.info(f"{prefix} schema: {schema}")
 
-
-@record
-def call_get_schema(state: SqlState):
-    prefix = "[Node sql_graph - call_get_schema]"
-    logger.info(f"{prefix} Start")
-
-    llm_with_tools = get_model("medium").bind_tools(
-        [tools.get_schema_tool], tool_choice="any"
-    )
-    response = llm_with_tools.invoke(state["messages"])
-
-    logger.info(f"{prefix} Response: {response_to_text(response)}")
-    return {"messages": [response]}
+    user_query = state["user_query"]
+    messages = [HumanMessage(content=user_query)]
+    logger.info(f"{prefix} user_query: {user_query}")
+    return {"tables": tables, "schema": schema, "messages": messages}
 
 
 @record
@@ -50,10 +36,25 @@ def generate_query(state: SqlState):
     prefix = "[Node sql_graph - generate_query]"
     logger.info(f"{prefix} Start")
 
+    user_query = state["user_query"]
+    tables = state["tables"]
+    schema = state["schema"]
+
+    last_message = state["messages"][-1]
+    if last_message.type == "tool":
+        tool_response = last_message.content
+        logger.info(f"{prefix} Tool Result: {tool_response}")
+    else:
+        tool_response = ""
+
     system_message = SystemMessage(
         content=prompts.generate_query_prompt.format(
             dialect=db.dialect,
             top_k=5,
+            tables=tables,
+            schema=schema,
+            user_query=user_query,
+            tool_response=tool_response,
         )
     )
     response = (
@@ -88,9 +89,14 @@ def check_query(state: SqlState):
     return {"messages": [response]}
 
 
-list_tables_node = ToolNode([tools.list_tables_tool], name="list_tables")
-get_schema_node = ToolNode([tools.get_schema_tool], name="get_schema")
-run_query_node = ToolNode([tools.run_query_tool], name="run_query")
+@record
+def response(state: SqlState):
+    pass
+
+
+list_tables_tool_node = ToolNode([tools.list_tables_tool], name="list_tables_tool_node")
+get_schema_tool_node = ToolNode([tools.get_schema_tool], name="get_schema_tool_node")
+run_query_tool_node = ToolNode([tools.run_query_tool], name="run_query_tool_node")
 
 generate_query_tools_node = ToolNode(
     [tools.list_tables_tool, tools.get_schema_tool, tools.run_query_tool],

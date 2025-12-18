@@ -13,7 +13,7 @@ from app.sql_graph.graph import sql_graph
 
 @tool("sql_graph", description="Process the SQL-related user requests")
 def call_sql_graph(query: str):
-    response = sql_graph.invoke({"messages": [HumanMessage(content=query)]})
+    response = sql_graph.invoke({"user_query": query})
     return response["messages"][-1].content
 
 

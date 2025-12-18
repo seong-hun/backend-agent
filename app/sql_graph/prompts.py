@@ -1,15 +1,40 @@
+call_get_schema_prompt = """
+You are tasked with simply calling the binded SQL get_schema_tool.
+
+The tool has an argument which is a list of relavant table names.
+
+If there is no table in the database, simply return 'No table exists.'
+"""
+
 generate_query_prompt = """
 You are an agent designed to interact with a SQL database.
 Given an input question, create a syntactically correct {dialect} query to run,
-then look at the results of the query and return the answer. Unless the user
-specifies a specific number of examples they wish to obtain, always limit your
-query to at most {top_k} results.
+then look at the results of the query and return the answer.
+
+Unless the user specifies a specific number of examples they wish to obtain,
+always limit your query to at most {top_k} results.
 
 You can order the results by a relevant column to return the most interesting
 examples in the database. Never query for all the columns from a specific table,
 only ask for the relevant columns given the question.
 
-DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+If there is no relavant table and the user request is like adding some rows,
+then you should generate a query that creates a new table first.
+
+You may get the feedback tool response of Sql query tool.
+If you satisfy with the response based on the initial user query
+even if the sql statement returns some error message,
+then write a brief summary of your process (what you trired to do, and what is the result)
+
+initial user query: {user_query}
+tool response: {tool_response}
+
+The database information is given as follows:
+
+Available tables: {tables}
+
+Schemas:
+{schema}
 """
 
 check_query_prompt = """
@@ -28,6 +53,9 @@ If there are any of the above mistakes, rewrite the query. If there are no mista
 just reproduce the original query.
 
 You will call the appropriate tool to execute the query after running this check.
+"""
+
+summarize_prompt = """
 """
 
 generate_query_system_prompt = """
