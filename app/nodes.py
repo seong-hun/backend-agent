@@ -1,10 +1,11 @@
+import logging
+
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app import prompts, tools
 from app.common.models import get_model
 from app.common.utils import get_recorder, record, response_to_text
 from app.states import MainOutputState, MainState
-import logging
 
 logger = logging.getLogger(__name__)
 recorder = get_recorder()
@@ -55,7 +56,9 @@ def handler(state: MainState):
 
     logic = state["logic"]
     system_message = SystemMessage(content=prompts.handler_prompt.format(logic=logic))
-    model = get_model("medium").bind_tools([tools.call_sql_graph, *tools.jwt_tools])
+    model = get_model("medium").bind_tools(
+        [tools.call_sql_graph, *tools.jwt_tools, *tools.password_tools]
+    )
     response = model.invoke([system_message, *state["messages"]])
 
     logger.info(f"{prefix} Response: {response_to_text(response)}")

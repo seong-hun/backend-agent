@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import dotenv
 import jwt
 from langchain.tools import tool
-from langchain_core.messages import HumanMessage
+from pwdlib import PasswordHash
 
 from app.sql_graph.graph import sql_graph
 
@@ -16,6 +16,25 @@ def call_sql_graph(query: str):
     response = sql_graph.invoke({"user_query": query})
     return response["messages"][-1].content
 
+
+# --- Password Hash Tool
+
+password_hash = PasswordHash.recommended()
+
+
+@tool(description="Verify password.")
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return password_hash.verify(plain_password, hashed_password)
+
+
+@tool(
+    description="Hash the password. The user password must be hashed before saved in a database."
+)
+def hash_password(password: str) -> str:
+    return password_hash.hash(password)
+
+
+password_tools = [hash_password, verify_password]
 
 # --- JWT Tools
 

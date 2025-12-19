@@ -14,7 +14,10 @@ def build_main_graph():
     builder.add_node(nodes.request_parser)
     builder.add_node(nodes.logic_generator)
     builder.add_node(nodes.handler)
-    builder.add_node("tools", ToolNode([tools.call_sql_graph, *tools.jwt_tools]))
+    builder.add_node(
+        "tools",
+        ToolNode([tools.call_sql_graph, *tools.jwt_tools, *tools.password_tools]),
+    )
     builder.add_node(nodes.responser)
 
     # Add edges
