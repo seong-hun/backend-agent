@@ -3,7 +3,7 @@ import logging
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-from app.common.databases import db
+from app.common.databases import db_manager
 from app.common.models import get_model
 from app.common.utils import record, response_to_text
 from app.sql_graph import prompts, tools
@@ -13,32 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 @record
-def get_db_info(state: SqlState):
-    prefix = "[Node sql_graph - list_tables]"
-    logger.info(f"{prefix} Start")
-
-    tables = tools.list_tables_tool.invoke({})
-    logger.info(f"{prefix} Avaliable tables: {tables}")
-    if not tables:
-        schema = ""
-
-    schema = tools.get_schema_tool.invoke(tables)
-    logger.info(f"{prefix} schema: {schema}")
-
-    user_query = state["user_query"]
-    messages = [HumanMessage(content=user_query)]
-    logger.info(f"{prefix} user_query: {user_query}")
-    return {"tables": tables, "schema": schema, "messages": messages}
-
-
-@record
 def generate_query(state: SqlState):
     prefix = "[Node sql_graph - generate_query]"
     logger.info(f"{prefix} Start")
 
     user_query = state["user_query"]
-    tables = state["tables"]
-    schema = state["schema"]
+
+    tables = ", ".join(db_manager.list_tables())
+    schema = db_manager.get_schema_text()
 
     last_message = state["messages"][-1]
     if last_message.type == "tool":
@@ -49,7 +31,7 @@ def generate_query(state: SqlState):
 
     system_message = SystemMessage(
         content=prompts.generate_query_prompt.format(
-            dialect=db.dialect,
+            dialect=db_manager.get_dialect(),
             top_k=5,
             tables=tables,
             schema=schema,
@@ -89,16 +71,4 @@ def check_query(state: SqlState):
     return {"messages": [response]}
 
 
-@record
-def response(state: SqlState):
-    pass
-
-
-list_tables_tool_node = ToolNode([tools.list_tables_tool], name="list_tables_tool_node")
-get_schema_tool_node = ToolNode([tools.get_schema_tool], name="get_schema_tool_node")
 run_query_tool_node = ToolNode([tools.run_query_tool], name="run_query_tool_node")
-
-generate_query_tools_node = ToolNode(
-    [tools.list_tables_tool, tools.get_schema_tool, tools.run_query_tool],
-    name="generate_query_tools",
-)

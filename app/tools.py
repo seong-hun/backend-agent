@@ -11,7 +11,13 @@ from app.sql_graph.graph import sql_graph
 # --- Sql Tool
 
 
-@tool("sql_graph", description="Process the SQL-related user requests")
+@tool(
+    "sql_graph",
+    description="""
+    Process the SQL-related user requests.
+    The user command should be in natural language, not the SQL statements.
+    """,
+)
 def call_sql_graph(query: str):
     response = sql_graph.invoke({"user_query": query})
     return response["messages"][-1].content
@@ -71,14 +77,23 @@ class JwtManager:
 jwt_manager = JwtManager()
 
 
-@tool(description="Create a JWT access token using the given username")
+@tool(
+    description="""
+    Create a JWT access token using the given username.
+    This tool should only be used when a user login.
+    """,
+)
 def create_jwt(username: str):
     access_token = jwt_manager.create_access_token(data={"sub": username})
     return access_token
 
 
 @tool(
-    description="Check the signature of the given JWT access token. Return True if it is valid, otherwise return False."
+    description="""
+    Check the signature of the given JWT access token.
+    Return True if it is valid, otherwise return False.
+    This tool should be used to check the user login session.
+    """
 )
 def check_jwt(access_token: str) -> bool:
     return jwt_manager.check_signature(access_token)

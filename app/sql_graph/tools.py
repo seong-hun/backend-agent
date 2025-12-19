@@ -1,12 +1,12 @@
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 
-from app.common.databases import db
+from app.common.databases import db_manager
 from app.common.models import get_model
 
 
 class SqlToolkit:
     def __init__(self):
-        toolkit = SQLDatabaseToolkit(db=db, llm=get_model("medium"))
+        toolkit = SQLDatabaseToolkit(db=db_manager.get_db(), llm=get_model("medium"))
         self.tools = toolkit.get_tools()
 
     def find_tool(self, name):
