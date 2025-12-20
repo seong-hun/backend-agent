@@ -1,7 +1,8 @@
+from typing import Literal
 from langgraph.graph import MessagesState
 
 
 class SqlState(MessagesState):
-    user_command: str
     tables: str
     schema: str
+    stage: Literal["start", "tool_call", "end"]

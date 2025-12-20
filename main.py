@@ -3,8 +3,7 @@ import json
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app import states
-from app.graph import main_graph
+from app.graph import build_main_graph
 
 app = FastAPI()
 
@@ -22,12 +21,14 @@ async def catch_all(full_path: str, request: Request):
         "path": full_path,
         "query_params": dict(request.query_params),
         "body": body,
+        "headers": dict(request.headers),
     }
-    state = states.MainState(request=states.Request(**api_request))
-    output = main_graph.invoke(state)
+    main_graph = build_main_graph()
+    output = main_graph.invoke({"messages": [json.dumps(api_request)]})
+    response = output["response"]
 
     return JSONResponse(
-        status_code=output.get("status_code", 200),
-        content=output.get("body", {}),
-        headers=output.get("headers"),
+        status_code=response.status_code,
+        content=response.body,
+        headers=response.headers,
     )

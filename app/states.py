@@ -1,24 +1,10 @@
-from typing import TypedDict
+from typing import Literal
 
 from langgraph.graph import MessagesState
 
-
-class Request(TypedDict):
-    method: str
-    path: str
-    query_params: dict
-    body: dict
+from app.schemas import Response
 
 
 class MainState(MessagesState):
-    request: Request
-    user_command: str
-    plan: str
-    denied: bool
-    denied_reason: str
-
-
-class MainOutputState(TypedDict):
-    status_code: int
-    body: dict
-    headers: dict
+    stage: Literal["start", "tool_call", "end"]
+    response: Response

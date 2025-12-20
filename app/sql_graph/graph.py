@@ -1,6 +1,7 @@
 from langgraph.graph import END, START, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
 
-from app.sql_graph import nodes, states
+from app.sql_graph import nodes, states, tools
 
 
 def should_continue(state: states.SqlState):
@@ -14,16 +15,13 @@ def should_continue(state: states.SqlState):
 
 def build_sql_graph():
     builder = StateGraph(states.SqlState)
-    builder.add_node(nodes.generate_query)
-    builder.add_node(nodes.check_query)
-    builder.add_node(nodes.run_query_tool_node)
 
-    builder.add_edge(START, "generate_query")
-    builder.add_conditional_edges(
-        "generate_query", should_continue, ["check_query", END]
-    )
-    builder.add_edge("check_query", "run_query_tool_node")
-    builder.add_edge("run_query_tool_node", "generate_query")
+    builder.add_node(nodes.handler)
+    builder.add_node("tools", ToolNode([tools.run_query_tool]))
+
+    builder.add_edge(START, "handler")
+    builder.add_conditional_edges("handler", tools_condition, ["tools", END])
+    builder.add_edge("tools", "handler")
 
     sql_graph = builder.compile()
     return sql_graph

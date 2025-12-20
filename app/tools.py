@@ -13,12 +13,10 @@ from app.sql_graph.graph import sql_graph
 
 @tool(
     "call_sql_graph",
-    description="""
-    This tool can run a natural language command related to SQL.
-    """,
+    description="Send a user command in a natural language to the database.",
 )
 def call_sql_graph(user_command: str):
-    response = sql_graph.invoke({"user_command": user_command})
+    response = sql_graph.invoke({"messages": [user_command]})
     return response["messages"][-1].content
 
 
@@ -66,9 +64,9 @@ class JwtManager:
                 self.secret_key,
                 algorithms=[self.algorithm],
             )
-            return True
+            return payload
         except jwt.exceptions.InvalidTokenError:
-            return False
+            return
 
 
 jwt_manager = JwtManager()
@@ -76,19 +74,19 @@ jwt_manager = JwtManager()
 
 @tool(
     description="""
-    Create a JWT access token using the given username.
+    Create a JWT access token using the given user_id.
     This tool should only be used when a user login.
     """,
 )
-def create_jwt(username: str):
-    access_token = jwt_manager.create_access_token(data={"sub": username})
+def create_jwt(user_id: str):
+    access_token = jwt_manager.create_access_token(data={"sub": user_id})
     return access_token
 
 
 @tool(
     description="""
     Check the signature of the given JWT access token.
-    Return True if it is valid, otherwise return False.
+    Return the payload if it is valid, otherwise return None.
     This tool should be used to check the user login session.
     """
 )
