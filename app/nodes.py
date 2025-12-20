@@ -2,48 +2,78 @@ import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app import prompts, tools
+from app import prompts, tools, schemas
 from app.common.models import get_model
-from app.common.utils import get_recorder, record, response_to_text
+from app.common.utils import get_api_examples, get_recorder, record, response_to_text
 from app.states import MainOutputState, MainState
 
 logger = logging.getLogger(__name__)
 recorder = get_recorder()
 
 
-@record
-def request_parser(state: MainState):
-    prefix = "[Node request_parser]"
+def translator(state: MainState):
+    prefix = "[Node translator]"
     logger.info(f"{prefix} Start")
 
-    system_message = SystemMessage(content=prompts.parse_request_prompt)
+    request = state["request"]
+    method = request["method"]
+    path = request["path"]
+    query_params = request["query_params"]
+    body = request["body"]
+
+    logger.info(f"{prefix} API request:")
+    logger.info(f"{prefix}   {method} /{path}")
+    logger.info(f"{prefix}   query_params: {query_params}")
+    logger.info(f"{prefix}   body: {body}")
+
+    system_message = SystemMessage(content=prompts.translator_prompt)
     human_message = HumanMessage(
         content=f"""
-            method: {state["method"]},
-            path: {state["path"]},
-            query_params: {state["query_params"]},
-            body: {state["body"]},
+        The user request is given by:
+            method: {method},
+            path: {path},
+            query_params: {query_params},
+            body: {body},
         """
     )
-    response = get_model("medium").invoke([system_message, human_message])
-    command = response.content
+    response = (
+        get_model("small")
+        .with_structured_output(schemas.UserCommand)
+        .invoke([system_message, human_message])
+    )
 
-    logger.info(f"{prefix} Convert '{state}' to '{command}'")
-    return {"command": command}
+    user_command = response.user_command
+
+    logger.info(f"{prefix} Translated user request: {user_command}")
+
+    return {"user_command": user_command}
 
 
-@record
-def logic_generator(state: MainState):
-    prefix = "[Node logic_generator]"
+def planner(state: MainState):
+    prefix = "[Node planner]"
     logger.info(f"{prefix} Start")
 
-    system_message = SystemMessage(content=prompts.logic_generator_prompt)
-    human_message = HumanMessage(content=state["command"])
-    response = get_model("medium").invoke([system_message, human_message])
-    logic = response.content
+    system_message = SystemMessage(
+        content=prompts.planner_prompt.format(api_examples=get_api_examples())
+    )
+    human_message = HumanMessage(content=state["user_command"])
+    response = (
+        get_model("medium")
+        .with_structured_output(schemas.Plan)
+        .invoke([system_message, human_message])
+    )
 
-    logger.info(f"{prefix} Created logic: {logic}")
-    return {"logic": logic}
+    plan = response.plan
+    denied = response.denied
+    denied_reason = response.denied_reason
+
+    logger.info(f"{prefix} Generated plan:\n{plan}")
+
+    return {
+        "plan": plan,
+        "denied": denied,
+        "denined_reason": denied_reason,
+    }
 
 
 @record
@@ -51,15 +81,14 @@ def handler(state: MainState):
     prefix = "[Node handler]"
     logger.info(f"{prefix} Start")
 
-    if state["messages"]:
-        logger.info(f"{prefix} Last message: {state['messages'][-1]}")
+    if state.get("messages", []) and state["messages"][-1].type == "tool":
+        logger.info(f"{prefix} Tool Response: {state['messages'][-1].content}")
 
-    logic = state["logic"]
-    system_message = SystemMessage(content=prompts.handler_prompt.format(logic=logic))
-    model = get_model("medium").bind_tools(
-        [tools.call_sql_graph, *tools.jwt_tools, *tools.password_tools]
+    system_message = SystemMessage(
+        content=prompts.handler_prompt.format(plan=state["plan"])
     )
-    response = model.invoke([system_message, *state["messages"]])
+    model = get_model("medium").bind_tools(tools.handler_tools)
+    response = model.invoke([system_message, *state.get("messages", [])])
 
     logger.info(f"{prefix} Response: {response_to_text(response)}")
     return {"messages": [response]}
@@ -70,8 +99,13 @@ def responser(state: MainState):
     prefix = "[Node responser]"
     logger.info(f"{prefix} Start")
 
-    logic = state["logic"]
-    system_message = SystemMessage(content=prompts.responser_prompt.format(logic=logic))
+    system_message = SystemMessage(
+        content=prompts.responser_prompt.format(
+            user_command=state["user_command"],
+            plan=state["plan"],
+            api_examples=get_api_examples(),
+        )
+    )
     model = get_model("medium").with_structured_output(MainOutputState)
     response = model.invoke([system_message, *state["messages"]])
 

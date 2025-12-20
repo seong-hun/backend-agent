@@ -14,16 +14,13 @@ def should_continue(state: states.SqlState):
 
 def build_sql_graph():
     builder = StateGraph(states.SqlState)
-    builder.add_node(nodes.get_db_info)
     builder.add_node(nodes.generate_query)
     builder.add_node(nodes.check_query)
     builder.add_node(nodes.run_query_tool_node)
 
-    builder.add_edge(START, "get_db_info")
-    builder.add_edge("get_db_info", "generate_query")
+    builder.add_edge(START, "generate_query")
     builder.add_conditional_edges(
-        "generate_query",
-        should_continue,
+        "generate_query", should_continue, ["check_query", END]
     )
     builder.add_edge("check_query", "run_query_tool_node")
     builder.add_edge("run_query_tool_node", "generate_query")

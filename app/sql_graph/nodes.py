@@ -17,14 +17,13 @@ def generate_query(state: SqlState):
     prefix = "[Node sql_graph - generate_query]"
     logger.info(f"{prefix} Start")
 
-    user_query = state["user_query"]
+    user_command = state["user_command"]
 
     tables = ", ".join(db_manager.list_tables())
     schema = db_manager.get_schema_text()
 
-    last_message = state["messages"][-1]
-    if last_message.type == "tool":
-        tool_response = last_message.content
+    if state["messages"] and state["messages"][-1].type == "tool":
+        tool_response = state["messages"][-1].content
         logger.info(f"{prefix} Tool Result: {tool_response}")
     else:
         tool_response = ""
@@ -35,7 +34,7 @@ def generate_query(state: SqlState):
             top_k=5,
             tables=tables,
             schema=schema,
-            user_query=user_query,
+            user_command=user_command,
             tool_response=tool_response,
         )
     )
@@ -55,7 +54,7 @@ def check_query(state: SqlState):
     logger.info(f"{prefix} Start")
 
     system_message = SystemMessage(
-        content=prompts.check_query_prompt.format(dialect=db.dialect)
+        content=prompts.check_query_prompt.format(dialect=db_manager.get_dialect())
     )
     tool_call = state["messages"][-1].tool_calls[0]
     user_message = HumanMessage(content=tool_call["args"]["query"])
@@ -65,8 +64,9 @@ def check_query(state: SqlState):
     response = llm_with_tools.invoke([system_message, user_message])
     response.id = state["messages"][-1].id
 
-    logger.info(f"{prefix} Check query: {user_message}")
-    logger.info(f"{prefix} Result: {response_to_text(response)}")
+    logger.info(
+        f"{prefix} Revised Query: ({response.messages[-1].tool_calls[0]['args']['query']})"
+    )
 
     return {"messages": [response]}
 

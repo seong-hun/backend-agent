@@ -1,13 +1,12 @@
-parse_request_prompt = """
-You are tasked to translate the given API message to natural language.
-First, think what {method} and {path} wants to do.
-Then, considering the {query_params} and {body},
-make the relavant human command in less than 3 sentences.
+translator_prompt = """
+You are a translator converting API request to a user command in natural language.
 
-Output: the translated human message like a command.
+First, think what {{method}} and {{path}} wants to do.
+Then, considering the {{query_params}} and {{body}},
+make the relavant human command in less than 3 sentences.
 """
 
-logic_generator_prompt = """
+planner_prompt = """
 You are a backend command interpretation agent.
 Your responsibility is to convert a natural language user command into a deterministic backend business logic plan that can be executed via API calls, database queries, or service functions.
 Your output must strictly follow these principles:
@@ -59,185 +58,49 @@ Final Output:
     •	Assume passwords are compared via secure hashing functions.
     •	Do not invent database schemas; use abstract representations (e.g., User, user_id).
 
-Example:
-
-User Command
-
-“Log me in with myuserid and mypassword”
-
-Expected Output
-
-Intent:
-- Authenticate a user and return their unique user identifier.
-
-Inputs:
-- username: User-provided login identifier
-- password: User-provided plaintext password
-
-Steps:
-1. Check if the user exists
-   - Action: Query User table by username
-   - On Success: Proceed to password verification
-   - On Failure: Return error "USER_NOT_FOUND"
-
-2. Verify password
-   - Action: Compare provided password with stored password hash
-   - On Success: Proceed to authentication success
-   - On Failure: Return error "INVALID_PASSWORD"
-
-3. Return authenticated user identifier
-   - Action: Fetch and return user_id
-   - On Success: Return user_id
-
-Final Output:
-- On Success:
-  - user_id (unique identifier from database)
-- On Failure:
-  - USER_NOT_FOUND
-  - INVALID_PASSWORD
+--- 
 
 You must always prioritize clarity, determinism, and backend executability over conversational tone.
 Do not include explanations outside the specified format.
+
+**IMPORTANT**
+You may plan only the actions explicitly specified in the following API examples.
+Any other requests will be denied.
+
+The API examples:
+
+{api_examples}
 """
 
 handler_prompt = """
-You are a single-thread processor agent that can handle logical sequences.
+You are a single-thread processor agent that can handle the backend procedure plan given by:
 
-The backend logic is given as follows:
-{logic}
+{plan}
 
-Process the logic step-by-step utilizing the binded tools if needed.
-
+Process the plan step-by-step utilizing the binded tools if needed.
 Do not ask a question to the user, just run the process.
-
 If you finish the process, return a final status of the overall process.
+
+**IMPORTANT**
+
+When using the `call_sql_graph` tool, do not give them SQL statements, but give them a natural language command.
 """
 
 responser_prompt = """
-You are provided with the following backend logic:
-{logic}
-
+You are provided with the user request and the backend plan.
 Based on the conversation, generate the response.
-"""
 
+The original user request:
+{user_command}
 
-api_examples = """
-1. Register user
+The generated backend plan:
+{plan}
 
-POST /register
-{
-  "username": <str>,
-  "password": <str>
-}
----
-201:
-{
-  "user_id": <str>
-}
-400:
-{
-  "error": "username is taken"
-}
+**IMPORTANT**
+You should return the response based on the following API examples.
+Any other requests will be denied.
 
-==================================
+The API examples:
 
-2. Login
-- Access token is a JWT token that contains user_id info
-
-POST /login
-{
-  "username": <str>,
-  "password": <str>
-}
----
-200:
-{
-  "access_token": <str>
-}
-401:
-{
-  "error": "invalid credentials"
-}
-
-==================================
-
-3. Search users
-- Query params are optional
-
-GET /users?name=<str>
----
-200:
-{
-  "users": [
-    {
-      "id": <str>,
-      "username": <str>
-    }
-  ],
-  "total": <int>
-}
-
-==================================
-
-4. Create a lab
-- User must be logged in (check Authorization header; using Bearer token)
-- The newly created lab's owner is the current user
-
-POST /labs
-{
-  "name": <str>,
-  "description": <str>
-}
----
-201:
-{
-  "lab_id": <str>
-}
-
-==================================
-
-5. Search labs
-- `q` matches for both name and description
-- `member_ids` contains IDs of all lab members excluding the owner
-
-GET /labs?q=<str>
----
-200:
-{
-  "labs": [
-    {
-      "id": <str>,
-      "owner_id": <str>,
-      "name": <str>,
-      "description": <str>,
-      "member_ids": [<str>]
-    }
-  ],
-  "total": <int>
-}
-
-==================================
-
-6. Join a lab
-- User must be logged in
-- A user can join a lab only once
-
-POST /labs/:id/join
----
-200:
-
-401:
-{
-  "error": "authentication required"
-}
-
-404:
-{
-  "error": "lab not found"
-}
-
-409:
-{
-  "error": "already a member"
-}
+{api_examples}
 """

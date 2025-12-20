@@ -1,11 +1,11 @@
+from app import states
 from app.graph import main_graph
-from app.states import MainState
 
-graph_input = {
+api_request = {
     "method": "GET",
     "path": "users",
     "query_params": {},
     "body": {},
 }
-state = MainState(**graph_input)
+state = states.MainState(request=states.Request(**api_request))
 output = main_graph.invoke(state)

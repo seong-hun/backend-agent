@@ -1,5 +1,5 @@
+from app import states
 from app.graph import main_graph
-from app.states import MainState
 
 graph_input = {
     "method": "POST",
@@ -7,5 +7,5 @@ graph_input = {
     "query_params": {},
     "body": {"username": "myuser", "password": "mypass"},
 }
-state = MainState(**graph_input)
+state = states.MainState(request=states.Request(**graph_input))
 output = main_graph.invoke(state)

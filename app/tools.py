@@ -12,14 +12,13 @@ from app.sql_graph.graph import sql_graph
 
 
 @tool(
-    "sql_graph",
+    "call_sql_graph",
     description="""
-    Process the SQL-related user requests.
-    The user command should be in natural language, not the SQL statements.
+    This tool can run a natural language command related to SQL.
     """,
 )
-def call_sql_graph(query: str):
-    response = sql_graph.invoke({"user_query": query})
+def call_sql_graph(user_command: str):
+    response = sql_graph.invoke({"user_command": user_command})
     return response["messages"][-1].content
 
 
@@ -39,8 +38,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def hash_password(password: str) -> str:
     return password_hash.hash(password)
 
-
-password_tools = [hash_password, verify_password]
 
 # --- JWT Tools
 
@@ -99,4 +96,4 @@ def check_jwt(access_token: str) -> bool:
     return jwt_manager.check_signature(access_token)
 
 
-jwt_tools = [create_jwt, check_jwt]
+handler_tools = [call_sql_graph, hash_password, verify_password, create_jwt, check_jwt]

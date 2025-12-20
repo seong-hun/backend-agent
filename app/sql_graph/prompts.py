@@ -26,7 +26,7 @@ If you satisfy with the response based on the initial user query
 even if the sql statement returns some error message,
 then write a brief summary of your process (what you trired to do, and what is the result)
 
-initial user query: {user_query}
+initial user command: {user_command}
 tool response: {tool_response}
 
 The database information is given as follows:

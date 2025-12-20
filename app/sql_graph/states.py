@@ -2,6 +2,6 @@ from langgraph.graph import MessagesState
 
 
 class SqlState(MessagesState):
-    user_query: str
+    user_command: str
     tables: str
     schema: str

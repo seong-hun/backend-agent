@@ -2,6 +2,9 @@ import logging
 import time
 from copy import deepcopy
 from functools import wraps
+from pathlib import Path
+
+import app
 
 logger = logging.getLogger(__name__)
 
@@ -59,3 +62,13 @@ def response_to_text(response):
         response_text = response
 
     return response_text
+
+
+def get_api_examples():
+    api_path = Path(app.__path__[0]).parent / "api_examples.txt"
+    try:
+        return api_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        print(f"Error: The file '{api_path}' was not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
