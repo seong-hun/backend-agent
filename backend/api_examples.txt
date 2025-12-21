@@ -1,0 +1,300 @@
+API Example Documentation
+
+This document describes the REST API for user management, lab management, and lab attendance management. All APIs use JSON for request and response bodies unless otherwise specified.
+
+==================================
+
+Authentication
+	•	Authentication is performed using JWT access tokens.
+	•	The access token must be included in the Authorization header:
+
+Authorization: Bearer <access_token>
+
+==================================
+
+1. Register User
+
+POST /register
+
+Request Body
+
+{
+  "username": "<str>",
+  "password": "<str>"
+}
+
+Responses
+
+201 Created
+
+{
+  "user_id": "<str>"
+}
+
+400 Bad Request
+
+{
+  "error": "username is taken"
+}
+
+==================================
+
+2. Login
+	•	Returns a JWT access token containing user_id.
+
+POST /login
+
+Request Body
+
+{
+  "username": "<str>",
+  "password": "<str>"
+}
+
+Responses
+
+200 OK
+
+{
+  "access_token": "<str>"
+}
+
+401 Unauthorized
+
+{
+  "error": "invalid credentials"
+}
+
+==================================
+
+3. Search Users
+	•	Query parameters are optional.
+
+GET /users?name=
+
+Responses
+
+200 OK
+
+{
+  "users": [
+    {
+      "id": "<str>",
+      "username": "<str>"
+    }
+  ],
+  "total": <int>
+}
+
+==================================
+
+4. Create a Lab
+	•	User must be authenticated.
+	•	The authenticated user becomes the lab owner.
+
+POST /labs
+
+Request Body
+
+{
+  "name": "<str>",
+  "description": "<str>"
+}
+
+Responses
+
+201 Created
+
+{
+  "lab_id": "<str>"
+}
+
+==================================
+
+5. Search Labs
+	•	q matches both name and description.
+	•	member_ids contains IDs of lab members excluding the owner.
+
+GET /labs?q=
+
+Responses
+
+200 OK
+
+{
+  "labs": [
+    {
+      "id": "<str>",
+      "owner_id": "<str>",
+      "name": "<str>",
+      "description": "<str>",
+      "member_ids": ["<str>"]
+    }
+  ],
+  "total": <int>
+}
+
+==================================
+
+6. Join a Lab
+	•	User must be authenticated.
+	•	A user can join a lab only once.
+
+POST /labs/:id/join
+
+Responses
+
+200 OK
+
+401 Unauthorized
+
+{
+  "error": "authentication required"
+}
+
+404 Not Found
+
+{
+  "error": "lab not found"
+}
+
+409 Conflict
+
+{
+  "error": "already a member"
+}
+
+==================================
+
+7. Create or Update Attendance (Lab Owner Only)
+	•	Only the lab owner can manage attendance.
+	•	Attendance is unique per (lab_id, user_id, date).
+	•	This API is idempotent.
+
+PUT /labs/:lab_id/attendance
+
+Request Body
+
+{
+  "user_id": "<str>",
+  "date": "YYYY-MM-DD",
+  "status": "present | absent | late | excused",
+  "note": "<str>"
+}
+
+Responses
+
+200 OK
+
+{
+  "attendance_id": "<str>",
+  "lab_id": "<str>",
+  "user_id": "<str>",
+  "date": "YYYY-MM-DD",
+  "status": "present",
+  "note": "<str>"
+}
+
+401 Unauthorized
+
+{
+  "error": "authentication required"
+}
+
+403 Forbidden
+
+{
+  "error": "only lab owner can manage attendance"
+}
+
+404 Not Found
+
+{
+  "error": "lab or user not found"
+}
+
+409 Conflict
+
+{
+  "error": "user is not a member of the lab"
+}
+
+==================================
+
+8. Get Lab Attendance by Date (Lab Owner Only)
+	•	Retrieves attendance records for all lab members on a specific date.
+
+GET /labs/:lab_id/attendance?date=YYYY-MM-DD
+
+Responses
+
+200 OK
+
+{
+  "lab_id": "<str>",
+  "date": "YYYY-MM-DD",
+  "attendances": [
+    {
+      "user_id": "<str>",
+      "username": "<str>",
+      "status": "present",
+      "note": "<str>"
+    }
+  ],
+  "total": <int>
+}
+
+403 Forbidden
+
+{
+  "error": "only lab owner can view attendance"
+}
+
+==================================
+
+9. Get Attendance History for a User (Lab Owner Only)
+	•	Retrieves attendance records for a specific user within a lab.
+	•	from and to query parameters are optional.
+
+GET /labs/:lab_id/users/:user_id/attendance?from=YYYY-MM-DD&to=YYYY-MM-DD
+
+Responses
+
+200 OK
+
+{
+  "lab_id": "<str>",
+  "user_id": "<str>",
+  "username": "<str>",
+  "attendances": [
+    {
+      "date": "YYYY-MM-DD",
+      "status": "present",
+      "note": "<str>"
+    }
+  ],
+  "total": <int>
+}
+
+==================================
+
+10. Delete Attendance Record (Optional, Lab Owner Only)
+	•	Deletes an existing attendance record.
+
+DELETE /labs/:lab_id/attendance/:attendance_id
+
+Responses
+
+204 No Content
+
+403 Forbidden
+
+{
+  "error": "only lab owner can delete attendance"
+}
+
+404 Not Found
+
+{
+  "error": "attendance not found"
+}
