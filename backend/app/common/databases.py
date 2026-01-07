@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from langchain_community.utilities import SQLDatabase
-from sqlmodel import create_engine, inspect
+from sqlmodel import Session, create_engine, inspect
 
 import app
 
@@ -18,6 +18,10 @@ class DatabaseManager:
         self.engine = create_engine(f"sqlite:///{db_path}")
         self.db = SQLDatabase(self.engine)
         self.inspector = inspect(self.engine)
+
+    def get_session(self):
+        with Session(self.engine) as session:
+            yield session
 
     def get_dialect(self):
         return self.db.dialect

@@ -201,6 +201,7 @@ dependencies = [
     { name = "pygraphviz" },
     { name = "pyjwt" },
     { name = "sqlmodel" },
+    { name = "websockets" },
 ]
 
 [package.dev-dependencies]
@@ -223,6 +224,7 @@ requires-dist = [
     { name = "pygraphviz", specifier = ">=1.14" },
     { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "sqlmodel", specifier = ">=0.0.27" },
+    { name = "websockets", specifier = ">=15.0.1" },
 ]
 
 [package.metadata.requires-dev]

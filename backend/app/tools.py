@@ -5,6 +5,8 @@ import dotenv
 import jwt
 from langchain.tools import tool
 from pwdlib import PasswordHash
+from pwdlib.exceptions import UnknownHashError
+
 
 from app.sql_graph.graph import sql_graph
 
@@ -13,10 +15,13 @@ from app.sql_graph.graph import sql_graph
 
 @tool(
     "call_sql_graph",
-    description="Send a user command in a natural language to the database.",
+    description="""
+    Send a user command in a natural language to the database,
+    and request proper return values (i.e., user_id).
+    """,
 )
-def call_sql_graph(user_command: str):
-    response = sql_graph.invoke({"messages": [user_command]})
+async def call_sql_graph(user_command: str):
+    response = await sql_graph.ainvoke({"messages": [user_command]})
     return response["messages"][-1].content
 
 
@@ -25,13 +30,25 @@ def call_sql_graph(user_command: str):
 password_hash = PasswordHash.recommended()
 
 
-@tool(description="Verify password.")
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return password_hash.verify(plain_password, hashed_password)
+@tool(
+    description="""
+    Verifies if a password matches a given hash.
+    The hash must be obtained from the database using username before calling this tool.
+    """
+)
+def verify_password(password: str, hash: str) -> str:
+    try:
+        rv = password_hash.verify(password, hash)
+        if rv:
+            return "Password verified"
+        else:
+            return "Invalid password"
+    except UnknownHashError:
+        return "Invalid hash"
 
 
 @tool(
-    description="Hash the password. The user password must be hashed before saved in a database."
+    description="Hashes a password. The user password must be hashed before saved in a database."
 )
 def hash_password(password: str) -> str:
     return password_hash.hash(password)
@@ -90,7 +107,7 @@ def create_jwt(user_id: str):
     This tool should be used to check the user login session.
     """
 )
-def check_jwt(access_token: str) -> bool:
+def check_jwt(access_token: str) -> str | None:
     return jwt_manager.check_signature(access_token)
 
 

@@ -1,25 +1,35 @@
 import logging
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import ToolNode
 
 from app.common.databases import db_manager
 from app.common.models import get_model
-from app.common.utils import record, response_to_text
+from app.common.utils import response_to_text
+from app.obs.event_bus import event_bus
 from app.sql_graph import prompts, tools
 from app.sql_graph.states import SqlState
 
 logger = logging.getLogger(__name__)
 
 
-@record
-def handler(state: SqlState):
+async def handler(state: SqlState):
     prefix = "[Node sql_graph - handler]"
 
     stage = state.get("stage")
     if stage is None:
         stage = "start"
-        logger.info(f"{prefix} Input: {state['messages'][-1].content}")
+        input_content = state["messages"][-1].content
+        logger.info(f"{prefix} Input: {input_content}")
+
+        await event_bus.publish(
+            {
+                "type": "node",
+                "graph": "sql_graph",
+                "name": "handler",
+                "status": "start",
+            },
+        )
 
     tables = ", ".join(db_manager.list_tables())
     schema = db_manager.get_schema_text()
@@ -48,6 +58,18 @@ def handler(state: SqlState):
         logger.info(
             f"{prefix} {model_prefix} Calling a tool: {response_to_text(response)}"
         )
+
+        for tool_call in response.tool_calls:
+            await event_bus.publish(
+                {
+                    "type": "tool",
+                    "graph": "sql_graph",
+                    "name": tool_call["name"],
+                    "status": "start",
+                    "content": tool_call["args"],
+                },
+            )
+
     elif response.content:
         stage = "respond"
         logger.info(f"{prefix} {model_prefix} Final response: {response.content}")
